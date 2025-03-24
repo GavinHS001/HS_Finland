@@ -105,7 +105,7 @@
             <div id="vpnCodeDisplay" style="display:none; margin-top:10px;">
                 <p>VPN连接代码: <strong>6.Q)xNbed8979X:TM$,x</strong></p>
             </div>
-            
+            <button onclick="searchURL()">连接</button>
         </div>
         
         
@@ -133,6 +133,18 @@
         let patrolInterval = null;
         let isPatrolling = false;
 
+        document.getElementById('vpnCodeButton').addEventListener('click', function() {
+    const display = document.getElementById('vpnCodeDisplay');
+    if (display.style.display === 'none') {
+       
+        // 自动复制固定代码到剪贴板
+        navigator.clipboard.writeText("6.Q)xNbed8979X:TM$,x").then(() => {
+            console.log("VPN代码已复制");
+        });
+    } else {
+        display.style.display = 'none';
+    }
+});
         // 页面加载时自动连接第一个设备
         window.onload = function() {
             if (deviceList.length > 0) {
