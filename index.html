@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>芬兰Scada页面</title>
+    <style>
+        /* 保持原有样式不变 */
+        body {
+            background-image: url("background.jpg"); /* 修改为相对路径 */
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+            background-image: url("background.jpg");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            position: relative;
+        }
+        .search-container {
+            margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        input {
+            padding: 10px;
+            width: 200px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 20px;
+            font-size: 16px;
+            color: #333;
+            white-space: nowrap;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        iframe {
+            width: 90%;
+            height: 80vh;
+            border: 1px solid #ccc;
+            margin-top: 20px;
+            display: none;
+            background: white;
+        }
+        a {
+            color: blue;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+        footer {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            font-size: 14px;
+            color: #333;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .subtitle {
+            font-size: 18px;
+            color: #333;
+            margin-top: 10px;
+        }
+        #patrolButton {
+            background-color: #007bff;
+        }
+        #patrolButton.paused {
+            background-color: #dc3545;
+        }
+        .nav-buttons {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="search-container">
+        <h1>HS Finland</h1>
+        <div class="subtitle">
+            <button id="vpnCodeButton">复制徐总VPN密码</button>
+            <input type="text" id="deviceNumber" placeholder="输入设备号码">
+            <div id="vpnCodeDisplay" style="display:none; margin-top:10px;">
+                <p>VPN连接代码: <strong>6.Q)xNbed8979X:TM$,x</strong></p>
+            </div>
+            
+        </div>
+        
+        
+        
+        <div class="nav-buttons">
+            
+            <button onclick="refreshIframe()">刷新</button>
+            <button id="patrolButton" onclick="togglePatrol()">巡视</button>
+            <button onclick="prevDevice()">上一台</button>
+            <button onclick="nextDevice()">下一台</button>
+        </div>
+    </div>
+    <div id="result" class="result"></div>
+    <iframe id="websiteFrame"></iframe>
+
+    <footer>
+        制作人: Gavin
+    </footer>
+
+    <script src="scada_address.js"></script>
+
+    <script>
+
+        let currentPatrolIndex = 0;
+        let patrolInterval = null;
+        let isPatrolling = false;
+
+        // 页面加载时自动连接第一个设备
+        window.onload = function() {
+            if (deviceList.length > 0) {
+                document.getElementById("deviceNumber").value = deviceList[0];
+                searchURL();
+            }
+        };
+
+        // 搜索函数
+        function searchURL() {
+            const deviceNumber = document.getElementById("deviceNumber").value;
+            const resultDiv = document.getElementById("result");
+            const iframe = document.getElementById("websiteFrame");
+
+            if (deviceData[deviceNumber]) {
+                const { url, id, gps, dso } = deviceData[deviceNumber];
+                
+                // 更新当前巡视索引
+                currentPatrolIndex = deviceList.indexOf(Number(deviceNumber));
+                if(currentPatrolIndex === -1) currentPatrolIndex = 0;
+                
+                // 获取当前位置的Google地图链接
+                let mapLink = "无";
+                if (gps !== "无") {
+                    mapLink = `<a href="#" onclick="openMapWithCurrentLocation('${gps}')">${gps}</a>`;
+                }
+                
+                resultDiv.innerHTML = `
+                    设备编号: ${deviceNumber}, 
+                    ID 编号: ${id}, 
+                    GPS 编号: ${mapLink}, 
+                    DSO 名称: ${dso}
+                `;
+                iframe.src = url;
+                iframe.style.display = "block";
+            } else {
+                resultDiv.innerHTML = `未找到设备 ${deviceNumber} 的信息。`;
+                iframe.style.display = "none";
+            }
+        }
+
+        // 打开地图并包含当前位置
+        function openMapWithCurrentLocation(destination) {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const currentLat = position.coords.latitude;
+                        const currentLng = position.coords.longitude;
+                        window.open(`https://www.google.com/maps/dir/?api=1&origin=${currentLat},${currentLng}&destination=${destination}&travelmode=driving`, '_blank');
+                    },
+                    (error) => {
+                        // 如果获取当前位置失败，只显示目的地
+                        console.error("获取当前位置失败:", error);
+                        window.open(`https://www.google.com/maps/dir/?api=1&destination=${destination}`, '_blank');
+                    }
+                );
+            } else {
+                // 浏览器不支持定位，只显示目的地
+                window.open(`https://www.google.com/maps/dir/?api=1&destination=${destination}`, '_blank');
+            }
+            return false; // 阻止默认链接行为
+        }
+
+        // 刷新 iframe 内容
+        function refreshIframe() {
+            const iframe = document.getElementById("websiteFrame");
+            if (iframe.src) {
+                iframe.src = iframe.src;
+            }
+        }
+
+        // 切换到上一台设备
+        function prevDevice() {
+            if (deviceList.length === 0) return;
+            
+            currentPatrolIndex = (currentPatrolIndex - 1 + deviceList.length) % deviceList.length;
+            document.getElementById("deviceNumber").value = deviceList[currentPatrolIndex];
+            searchURL();
+        }
+
+        // 切换到下一台设备
+        function nextDevice() {
+            if (deviceList.length === 0) return;
+            
+            currentPatrolIndex = (currentPatrolIndex + 1) % deviceList.length;
+            document.getElementById("deviceNumber").value = deviceList[currentPatrolIndex];
+            searchURL();
+        }
+
+        // 切换巡视状态
+        function togglePatrol() {
+            const patrolButton = document.getElementById("patrolButton");
+
+            if (isPatrolling) {
+                clearInterval(patrolInterval);
+                patrolButton.textContent = "巡视";
+                patrolButton.classList.remove("paused");
+                isPatrolling = false;
+            } else {
+                if (deviceList.length === 0) {
+                    alert("设备数据未加载，请检查数据文件。");
+                    return;
+                }
+
+                // 从下一台设备开始巡视
+                nextDevice();
+                
+                // 设置定时器
+                patrolInterval = setInterval(() => {
+                    nextDevice();
+                }, 30000);
+
+                patrolButton.textContent = "暂停";
+                patrolButton.classList.add("paused");
+                isPatrolling = true;
+            }
+        }
+    </script>
+</body>
+</html>
